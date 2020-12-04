@@ -85,10 +85,14 @@ class MyDeblurDataset(Dataset):#root_dir like: "./GOPRO_Large/train/"
         blur_image = io.imread(blur_dir + image[idx])
         sharp_image = io.imread(sharp_dir + image[idx])
         opticalflow_path_1 = image[idx][:-3] + 'flo'
-        opticalflow_path_2 = image[idx+1][:-3] + 'flo'
+        image_string = image[idx][:-3]
+        index1 = image_string.find('e')
+        index2 = image_string.find('.')
+        number = int(image_string[index1+1:index2])
+        opticalflow_path_2 = image_string[:index1+1] + str(number+1) + '.flo'
         opticalflow_1 = cv2.readOpticalFlow(opticflow_dir + opticalflow_path_1)
         opticalflow_2 = cv2.readOpticalFlow(opticflow_dir + opticalflow_path_2)
-        
+        """
         fig2 =plt.figure()
         fig2.add_subplot(3,1,1)
         plt.imshow(sharp_image)
@@ -97,7 +101,12 @@ class MyDeblurDataset(Dataset):#root_dir like: "./GOPRO_Large/train/"
         fig2.add_subplot(3,1,3)
         plt.imshow(draw_hsv(opticalflow_2))
         plt.show()
-        
+        """
+        print("idx:", idx)
+        print(blur_dir + image[idx])
+        print(sharp_dir + image[idx])
+        print(opticalflow_path_1)
+        print(opticalflow_path_2)
         
         blur_image_transformed, sharp_image_transformed, of1, of2 = self.transform(blur_image,sharp_image,opticalflow_1,opticalflow_2)
             
@@ -216,5 +225,6 @@ def plot_dataset_item(image, mask, of1, of2):
 if __name__ == '__main__':
     
     dataset = MyDeblurDataset(root_path = './GOPRO_Large/train/')
-
+    for i in range(len(dataset)):
+        blur_image,sharp_image,of1,of2 = dataset[i]
     
