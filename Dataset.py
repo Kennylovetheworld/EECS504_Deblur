@@ -1,230 +1,178 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Nov 24 12:06:30 2020
+Created on Sat Dec  5 11:45:18 2020
 
 @author: sheng
 """
-from __future__ import print_function, division
+
+import os.path
 import random
-import os
-import shutil
+import torch.utils.data as data
+from torch.utils import *
 import torch
-import pandas as pd
-from skimage import io, transform
-import numpy as np
 from PIL import Image
-import cv2
-import matplotlib.pyplot as plt
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms, utils
+from torchvision import transforms
 import torchvision.transforms.functional as TF
+import numpy as np
+from skimage import io
+import cv2
 
-class MyDeblurDataset(Dataset):#root_dir like: "./GOPRO_Large/train/"
-    def __init__(self, root_path):
-        """
-        Args:
-            root_dir (string): Directory with all the images.
-        """
-        self.root_path = root_path
-    def __len__(self):
-        blur_dir = self.root_path + "blur/"
-        image = os.listdir(blur_dir)
-        return len(image)
+"""
+def augment(img_input, img_target):
+    degree = random.choice([0, 90, 180, 270])
+    img_input = transforms.functional.rotate(img_input, degree)
+    img_target = transforms.functional.rotate(img_target, degree)
+
+    # color augmentation
+    img_input = transforms.functional.adjust_gamma(img_input, 1)
+    img_target = transforms.functional.adjust_gamma(img_target, 1)
+    sat_factor = 1 + (0.2 - 0.4 * np.random.rand())
+    img_input = transforms.functional.adjust_saturation(img_input, sat_factor)
+    img_target = transforms.functional.adjust_saturation(img_target, sat_factor)
+
+    return img_input, img_target
+
+
+def getPatch(img_input, img_target, opticalflow_1, opticalflow_2, path_size):
+    w, h = img_input.size
+    p = path_size
+    x = random.randrange(0, w - p + 1)
+    y = random.randrange(0, h - p + 1)
+    img_input = img_input.crop((x, y, x + p, y + p))
+    img_target = img_target.crop((x, y, x + p, y + p))
+    opticalflow_1 = img_target.crop((x, y, x + p, y + p))
+    opticalflow_2 = img_target.crop((x, y, x + p, y + p))
+    return img_input, img_target, opticalflow_1, opticalflow_2
+"""
+
+def transform(img_input, img_target, opticalflow_1, opticalflow_2, patchsize):
+    opticalflow_1 = opticalflow_1.permute(2,0,1)
+    opticalflow_2 = opticalflow_2.permute(2,0,1)
     
-    def transform(self, image, mask, of1, of2):
-        # Transform to tensor
-        image = TF.to_tensor(image)
-        mask = TF.to_tensor(mask)
-        
-        of1 = torch.Tensor(of1)
-        of2 = torch.Tensor(of2)
-        of1 = of1.permute(2,0,1)
-        of2 = of2.permute(2,0,1)
-        
-        # Random horizontal flipping
-        if random.random() > 0.5:
-            image = TF.hflip(image)
-            mask = TF.hflip(mask)
-            of1 = TF.hflip(of1)
-            of2 = TF.hflip(of2)
+    # Random horizontal flipping
+    if random.random() > 0.5:
+        img_input = TF.hflip(img_input)
+        img_target = TF.hflip(img_target)
+        opticalflow_1 = TF.hflip(opticalflow_1)
+        opticalflow_2 = TF.hflip(opticalflow_2)
 
-        # Random vertical flipping
-        if random.random() > 0.5:
-            image = TF.vflip(image)
-            mask = TF.vflip(mask)
-            of1 = TF.vflip(of1)
-            of2 = TF.vflip(of2)
+    # Random vertical flipping
+    if random.random() > 0.5:
+        img_input = TF.vflip(img_input)
+        img_target = TF.vflip(img_target)
+        opticalflow_1 = TF.vflip(opticalflow_1)
+        opticalflow_2 = TF.vflip(opticalflow_2)
         
-        # Random rotation
-        angle = transforms.RandomRotation.get_params([-180, 180])
-        image = TF.rotate(image, angle)   #pytorch:1.7.0, torchvision:0.8.1
-        mask = TF.rotate(mask, angle)
-        of1 = TF.rotate(of1, angle)
-        of2 = TF.rotate(of2, angle)
+    # Random rotation
+    angle = transforms.RandomRotation.get_params([-180, 180])
+    img_input = TF.rotate(img_input, angle)   #pytorch:1.7.0, torchvision:0.8.1
+    img_target = TF.rotate(img_target, angle)
+    opticalflow_1 = TF.rotate(opticalflow_1, angle)
+    opticalflow_2 = TF.rotate(opticalflow_2, angle)
+    
+    # Random crop
+    i, j, h, w = transforms.RandomCrop.get_params(
+        img_input, output_size=(patchsize, patchsize))
+    img_input = TF.crop(img_input, i, j, h, w)
+    img_target = TF.crop(img_target, i, j, h, w)
+    opticalflow_1 = TF.crop(opticalflow_1, i, j, h, w)
+    opticalflow_2 = TF.crop(opticalflow_2, i, j, h, w)
+    
+    return img_input, img_target, opticalflow_1, opticalflow_2
         
-        # Random crop
-        i, j, h, w = transforms.RandomCrop.get_params(
-            image, output_size=(256, 256))
-        image = TF.crop(image, i, j, h, w)
-        mask = TF.crop(mask, i, j, h, w)
-        of1 = TF.crop(of1, i, j, h, w)
-        of2 = TF.crop(of2, i, j, h, w)
+class Gopro(data.Dataset):
+    def __init__(self, data_dir, patch_size=256): #is_train=False, multi=True):
+        super(Gopro, self).__init__()
+        #self.is_train = is_train
+        self.patch_size = patch_size
+        #self.multi = multi
 
-        of1 = of1.permute(1,2,0)
-        of2 = of2.permute(1,2,0)
-        of1 = of1.numpy()
-        of2 = of2.numpy()
+        self.sharp_file_paths = []
+
+        sub_folders = os.listdir(data_dir)
+
+        for folder_name in sub_folders:
+            sharp_sub_folder = os.path.join(data_dir, folder_name, 'sharp')
+            sharp_file_names = os.listdir(sharp_sub_folder)
+
+            for file_name in sharp_file_names:
+                if(sharp_file_names.index(file_name)!=0 and sharp_file_names.index(file_name)!=len(sharp_file_names)-1):
+                    sharp_file_path = os.path.join(sharp_sub_folder, file_name)
+                    self.sharp_file_paths.append(sharp_file_path)
+
+        self.n_samples = len(self.sharp_file_paths)
+
+    def get_img_pair_and_opticalflow(self, idx):
+        sharp_file_path = self.sharp_file_paths[idx]
+        blur_file_path = sharp_file_path.replace("sharp", "blur")
+        opticalflow_file_path = sharp_file_path.replace("sharp", "opticalflow")
+        opticalflow_file_path = opticalflow_file_path.replace("png", "flo")
+
+        img_input = Image.open(blur_file_path).convert('RGB')
+        img_target = Image.open(sharp_file_path).convert('RGB')
+        opticalflow_1 = cv2.readOpticalFlow(opticalflow_file_path)
         
-        return image, mask, of1, of2
+        opticalflow_folder = os.path.dirname(opticalflow_file_path)
+        flow1_name = os.path.basename(opticalflow_file_path)
+        files = os.listdir(opticalflow_folder)
+        index = files.index(flow1_name)
+        
+        opticalflow_2 = cv2.readOpticalFlow(os.path.join(opticalflow_folder, files[index+1]))
+            
+        return img_input, img_target, opticalflow_1, opticalflow_2
 
     def __getitem__(self, idx):
-        blur_dir = self.root_path + "blur/"
-        sharp_dir = self.root_path + "sharp/"
-        opticflow_dir = self.root_path + "opticflow/"
-        image = os.listdir(blur_dir)
-        blur_image = io.imread(blur_dir + image[idx])
-        sharp_image = io.imread(sharp_dir + image[idx])
-        opticalflow_path_1 = image[idx][:-3] + 'flo'
-        image_string = image[idx][:-3]
-        index1 = image_string.find('e')
-        index2 = image_string.find('.')
-        number = int(image_string[index1+1:index2])
-        opticalflow_path_2 = image_string[:index1+1] + str(number+1) + '.flo'
-        opticalflow_1 = cv2.readOpticalFlow(opticflow_dir + opticalflow_path_1)
-        opticalflow_2 = cv2.readOpticalFlow(opticflow_dir + opticalflow_path_2)
-        """
-        fig2 =plt.figure()
-        fig2.add_subplot(3,1,1)
-        plt.imshow(sharp_image)
-        fig2.add_subplot(3,1,2)
-        plt.imshow(draw_hsv(opticalflow_1))
-        fig2.add_subplot(3,1,3)
-        plt.imshow(draw_hsv(opticalflow_2))
-        plt.show()
-        """
-        print("idx:", idx)
-        print(blur_dir + image[idx])
-        print(sharp_dir + image[idx])
-        print(opticalflow_path_1)
-        print(opticalflow_path_2)
-        
-        blur_image_transformed, sharp_image_transformed, of1, of2 = self.transform(blur_image,sharp_image,opticalflow_1,opticalflow_2)
+        img_input, img_target, opticalflow_1, opticalflow_2 = self.get_img_pair_and_opticalflow(idx)
             
-        return blur_image_transformed, sharp_image_transformed, of1, of2
-    
-    
-def ChangeDataset(root_path):# root_path like: "./GOPRO_Large/train/"
-    blur_dir = root_path + "blur/"
-    sharp_dir = root_path + "sharp/"
-    opticflow_dir = root_path + "opticflow/"
-    if (not os.path.isdir(blur_dir)):
-        try:
-            os.mkdir(root_path + "blur/")
-        except OSError:
-            print ("Creation of the directory %s failed" % (root_path + "blur/"))
-        else:
-            print ("Successfully created the directory %s " % (root_path + "blur/"))
-    else:
-        print ("Already created the directory %s " % (root_path + "blur/"))
-    if (not os.path.isdir(sharp_dir)):
-        try:
-            os.mkdir(root_path + "sharp/")
-        except OSError:
-            print ("Creation of the directory %s failed" % (root_path + "sharp/"))
-        else:
-            print ("Successfully created the directory %s " % (root_path + "sharp/"))
-    else:
-        print ("Already created the directory %s " % (root_path + "sharp/"))
-    if (not os.path.isdir(opticflow_dir)):
-        try:
-            os.mkdir(root_path + "opticflow/")
-        except OSError:
-            print ("Creation of the directory %s failed" % (root_path + "opticflow/"))
-        else:
-            print ("Successfully created the directory %s " % (root_path + "opticflow/"))
-    else:
-        print ("Already created the directory %s " % (root_path + "opticflow/"))
+        """
+        if self.is_train:
+            img_input, img_target, opticalflow_1, opticalflow_2 = getPatch(
+                img_input, img_target, opticalflow_1, opticalflow_2, self.patch_size)
+            img_input, img_target = augment(img_input, img_target)
+        """
+        img_input = transforms.ToTensor()(img_input)
+        img_target = transforms.ToTensor()(img_target)
+        opticalflow_1 = torch.Tensor(opticalflow_1)
+        opticalflow_2 = torch.Tensor(opticalflow_2)
         
-    dirs = os.listdir(root_path)
-    v=1
-    for dir in dirs:
-        i=1
-        if (dir != 'blur' and dir != 'sharp' and dir!= 'opticflow'):
-            blur_image_path = root_path + dir + '/blur/'
-            sharp_image_path = root_path + dir + '/sharp/'
-            image_path = os.listdir(blur_image_path)
-            for image in image_path:
-                if (image != image_path[0] and image != image_path[-1]):
-                    shutil.copyfile(blur_image_path + image, blur_dir + 'v' + str(v) + '_image' + str(i) + '.png')
-                    shutil.copyfile(sharp_image_path + image, sharp_dir + 'v' + str(v) + '_image' + str(i) + '.png')
-                    i += 1
-            print("copy ",i," training images to blur and sharp folders from video ",v)
-            for j in range(len(image_path) - 1):
-                img1 = io.imread(sharp_image_path + image_path[j])
-                img2 = io.imread(sharp_image_path + image_path[j+1])
-                opticflow = cal_opticflow(img1, img2)
-                cv2.writeOpticalFlow(opticflow_dir + 'v' + str(v) + '_image' + str(j+1) + '.flo', opticflow)
-            print("caculate optical flow to optical flow folder from video ",v)
-            v += 1
-        
-        
-def RemoveAllFile(root_path):# root_path like: "./GOPRO_Large/train/"
-    blur_dir = root_path + "blur/"
-    sharp_dir = root_path + "sharp/"
-    opticflow_dir = root_path + "opticflow/"
-    for image in os.listdir(blur_dir):
-        os.remove(blur_dir + image)
-    for image in os.listdir(sharp_dir):
-        os.remove(sharp_dir + image)
-    for opticalflow in os.listdir(opticflow_dir):
-        os.remove(opticflow_dir + opticalflow)
-        
-def cal_opticflow(img1, img2):
-    gray1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
-    gray2 = cv2.cvtColor(img2, cv2.COLOR_BGR2GRAY)
+        img_input, img_target, opticalflow_1, opticalflow_2 = transform(
+            img_input, img_target, opticalflow_1, opticalflow_2, self.patch_size)
+        """
+        H = input_b1.size()[1]
+        W = input_b1.size()[2]
+       
+        if self.multi:
+            input_b1 = transforms.ToPILImage()(input_b1)
+            target_s1 = transforms.ToPILImage()(target_s1)
 
-    # cv2 version: 4.4
-    inst = cv2.DISOpticalFlow.create(cv2.DISOPTICAL_FLOW_PRESET_MEDIUM)
-    flow = inst.calc(gray1, gray2, None)#flow:(720,1280,2)
-    return flow
+            input_b2 = transforms.ToTensor()(transforms.Resize([int(H / 2), int(W / 2)])(input_b1))
+            input_b3 = transforms.ToTensor()(transforms.Resize([int(H / 4), int(W / 4)])(input_b1))
 
-def draw_hsv(flow):
-    h, w = flow.shape[:2]
-    fx, fy = flow[:,:,0], flow[:,:,1]
-    ang = np.arctan2(fy, fx) + np.pi
-    v = np.sqrt(fx*fx+fy*fy)
-    hsv = np.zeros((h, w, 3), np.uint8)
-    hsv[...,0] = ang*(180/np.pi/2)
-    hsv[...,1] = 255
-    hsv[...,2] = np.minimum(v*4, 255)
-    bgr = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
-    return bgr
+            if self.is_train:
+                target_s2 = transforms.ToTensor()(transforms.Resize([int(H / 2), int(W / 2)])(target_s1))
+                target_s3 = transforms.ToTensor()(transforms.Resize([int(H / 4), int(W / 4)])(target_s1))
+            else:
+                target_s2 = []
+                target_s3 = []
 
-def plot_dataset_item(image, mask, of1, of2):
-    image = (255 * image).type(torch.IntTensor)
-    mask = (255 * mask).type(torch.IntTensor)
+            input_b1 = transforms.ToTensor()(input_b1)
+            target_s1 = transforms.ToTensor()(target_s1)
+            return {'input_b1': input_b1, 'input_b2': input_b2, 'input_b3': input_b3,
+                    'target_s1': target_s1, 'target_s2': target_s2, 'target_s3': target_s3}
+        else:
+            return {'input_b1': input_b1, 'target_s1': target_s1}
+        """
+        return img_input, img_target, opticalflow_1, opticalflow_2
+
+    def __len__(self):
+        return self.n_samples
     
-    image = (image.permute(1, 2, 0)).numpy()
-    mask = (mask.permute(1, 2, 0)).numpy()
-    #of1 = (of1.permute(1, 2, 0)).numpy()
-    #of2 = (of2.permute(1, 2, 0)).numpy()
-    
-    fig=plt.figure()
-    
-    fig.add_subplot(2,2,1)
-    plt.imshow(image)
-    fig.add_subplot(2,2,2)
-    plt.imshow(mask)
-    fig.add_subplot(2,2,3)
-    plt.imshow(draw_hsv(of1))
-    fig.add_subplot(2,2,4)
-    plt.imshow(draw_hsv(of2))
-    
-    plt.show()
     
 if __name__ == '__main__':
-    
-    dataset = MyDeblurDataset(root_path = './GOPRO_Large/train/')
-    for i in range(len(dataset)):
-        blur_image,sharp_image,of1,of2 = dataset[i]
-    
+    dataset = Gopro(data_dir = './GOPRO_Large/train/')
+
+    training_generator = data.DataLoader(dataset, batch_size=32, shuffle=True, num_workers=4)
+
+    for epoch in range(2):
+        for i_batch, (img_input, img_target, opticalflow_1, opticalflow_2) in enumerate(training_generator):
+            print(i_batch)
