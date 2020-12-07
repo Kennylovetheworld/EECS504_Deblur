@@ -64,13 +64,6 @@ class DeformConvBlock(nn.Module):
         # The conv and defromConv should have the same stride, kernel size and dilation so
         #   that the output of conv matches the size of output of deformConv and therefore can
         #   serve as the offset
-        # TODO: In a typical deformable convolution layer, the weight is itself a leaernable
-        #   parameter. This is why the offset is set to 2*kH*kW * outH * outW and that is enough.
-        #   In this paper however, the convolution generates something of channel number 3N
-        #   which interpretes to 3*kH*kW. It seems that the author would like to use the extra
-        #   channel for the weight but the weight should be of size out_channels * in_channels *
-        #   kH * kW = kH*kW * out_channels * in_channels. The channel numbers has nothing to
-        #   do with the outH outW which makes it strange to entangle them in the first place.
         self.kernel_size = 3
         self.conv = nn.Sequential()
         for i in range(num_conv - 1):
@@ -79,11 +72,13 @@ class DeformConvBlock(nn.Module):
             self.conv.add_module("conv %d"%i, nn.Conv2d(channels_conv, channels_conv, self.kernel_size, 1, 1, 1))
         if use_act:
             self.conv.add_module("act_final", nn.PReLU(channels_conv))
-        self.conv.add_module("conv_final", nn.Conv2d(channels_conv, 2*3*3, self.kernel_size, 1, 1, 1))
+        self.conv.add_module("conv_final", nn.Conv2d(channels_conv, 3*3*3, self.kernel_size, 1, 1, 1))
         self.deformConv = DeformConv2d(channels_deform, channels_deform, self.kernel_size, 1, 1, 1)
     
     def forward(self, content_feats, blur_feats):
-        offset = self.conv(blur_feats)
+        ow = self.conv(blur_feats)
+        offset = ow[:,:2*3*3]
+        weight = ow[:.2*3*3:] # Reimplement deformConv?
         out = self.deformConv(content_feats, offset)
         return out, offset
 
