@@ -202,9 +202,13 @@ def draw_hsv(flow):
 if __name__ == '__main__':
     data_dir = './GOPRO_Large/train/'
     
+    #before running this file, run Calculate_opticalflow.py first to calculate optical flow
+    
+    
     #first time needs to run prepocessing dataset
     #preprocess_dataset(data_dir)
-    
+
+
     dataset = Gopro_prepocessed(data_dir)
     
     #test plot
