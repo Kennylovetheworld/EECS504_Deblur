@@ -15,7 +15,7 @@ This the our EECS 504 final project for image Deblur.
 
 ## 07/12
 + Tianrong Zhang: Change DeformConvBlock conv behaviour (3N -> 2N + 64)
-+ Chengzhi Peng: Loss 3, input 2N & chop/sampling points
++ Chengzhi Peng: Loss 3, input 2N & chop input pic/sampling points
 + Shang Shen: Data augmentation (optional)
 + Shukai Fan: Trainer
 + Next meeting: 09/12 (Wed) 10:00 AM +8 (runable model)
