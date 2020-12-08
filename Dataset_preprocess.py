@@ -13,7 +13,11 @@ from torchvision import transforms
 import torchvision.transforms.functional as TF
 import cv2
 import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
 
+
+#data augmentation
 def transform(img_input, img_target, opticalflow_1, opticalflow_2, patchsize):
 
     opticalflow_1 = opticalflow_1.permute(2,0,1)
@@ -53,6 +57,8 @@ def transform(img_input, img_target, opticalflow_1, opticalflow_2, patchsize):
 
     return img_input, img_target, opticalflow_1, opticalflow_2    
     
+
+#prepocess dataset, save tensor files of blur images, sharp images and optical flows
 def preprocess_dataset(data_dir):
     sub_folders = os.listdir(data_dir)
     sharp_file_paths = []
@@ -75,8 +81,8 @@ def preprocess_dataset(data_dir):
 
     n_samples = len(sharp_file_paths)
     
-    blur_img_all = torch.zeros((n_samples, 3, 256, 256), dtype=torch.uint8)
-    sharp_img_all = torch.zeros((n_samples, 3, 256, 256), dtype=torch.uint8)
+    blur_img_all = torch.zeros((n_samples, 3, 256, 256), dtype=torch.float16)
+    sharp_img_all = torch.zeros((n_samples, 3, 256, 256), dtype=torch.float16)
     opticalflow_all = torch.zeros((n_samples, 2, 2, 128, 128), dtype=torch.float16)
     
     for idx in range(n_samples):
@@ -127,6 +133,12 @@ def preprocess_dataset(data_dir):
     torch.save(sharp_img_all, os.path.join(data_dir, 'sharp_img_all.pt'))
     torch.save(opticalflow_all, os.path.join(data_dir, 'opticalflow_all.pt'))
     
+    #blur_img_all,     tensor, range[0,1], dtype = torch.float16, size = (2059, 3, 256, 256)
+    #sharp_img_all,    tensor, range[0,1], dtype = torch.float16, size = (2059, 3, 256, 256)
+    #opticalflow_all,  tensor, range[0,255], dtype = torch.float16, size = (2059, 2, 2, 128, 128)
+    
+    
+    # save prepocess file path
     df.to_excel(os.path.join(data_dir, 'log.xlsx'))
     df.to_csv((os.path.join(data_dir, 'log.csv')), index=False)
     
@@ -148,21 +160,63 @@ class Gopro_prepocessed(data.Dataset):
         opticalflow_1 = self.opticalflow_all[idx, 0, :, :, :]
         opticalflow_2 = self.opticalflow_all[idx, 1, :, :, :]
         
+        #input_img tensor(3,256,256)      range[0-1], dtype = torch.float16
+        #target_img tensor(3,256,256)     range[0-1], dtype = torch.float16
+        #opticalflow_1 tensor(2,128,128)  range[0-255], dtype = torch.float16
+        #opticalflow_2 tensor(2,128,128)  range[0-255], dtype = torch.float16
+        
         return input_img, target_img, opticalflow_1, opticalflow_2
 
     def __len__(self):
         return self.n_samples
+    
+    
+def plot(input_img, target_img, opticalflow_1, opticalflow_2):
+    fig, ax = plt.subplots(nrows=2, ncols=2)
+    
+    ax[0,0].imshow(input_img.permute(1, 2, 0).type(torch.float32))
+    ax[0,1].imshow(target_img.permute(1, 2, 0).type(torch.float32))
+    
+    opticalflow_1 = opticalflow_1.permute(1,2,0).type(torch.float32)
+    opticalflow_2 = opticalflow_2.permute(1,2,0).type(torch.float32)
+    
+    ax[1,0].imshow(draw_hsv(opticalflow_1))
+    ax[1,1].imshow(draw_hsv(opticalflow_2))
+    
+    
+    plt.show()
+    
+def draw_hsv(flow):
+    h, w = flow.shape[:2]
+    fx, fy = flow[:,:,0], flow[:,:,1]
+    ang = np.arctan2(fy, fx) + np.pi
+    v = np.sqrt(fx*fx+fy*fy)
+    hsv = np.zeros((h, w, 3), np.uint8)
+    hsv[...,0] = ang*(180/np.pi/2)
+    hsv[...,1] = 255
+    hsv[...,2] = np.minimum(v*4, 255)
+    bgr = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+    return bgr
         
         
 if __name__ == '__main__':
     data_dir = './GOPRO_Large/train/'
     
-    
+    #first time needs to run prepocessing dataset
     #preprocess_dataset(data_dir)
     
     dataset = Gopro_prepocessed(data_dir)
     
-    training_generator = data.DataLoader(dataset, batch_size=32, shuffle=True, num_workers=4)
+    #test plot
+    input_img, target_img, opticalflow_1, opticalflow_2 = dataset[int(random.random() * len(dataset))]
+    #input_img tensor(3,256,256)      range[0-1], dtype = torch.float16
+    #target_img tensor(3,256,256)     range[0-1], dtype = torch.float16
+    #opticalflow_1 tensor(2,128,128)  range[0-255], dtype = torch.float16
+    #opticalflow_2 tensor(2,128,128)  range[0-255], dtype = torch.float16
+    plot(input_img, target_img, opticalflow_1, opticalflow_2)
+    
+    #dataloader
+    #training_generator = data.DataLoader(dataset, batch_size=32, shuffle=True, num_workers=4)
     
     
     
