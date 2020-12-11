@@ -1,7 +1,9 @@
 import torch
 from torch import nn
 from torchvision.ops import DeformConv2d
-from util import *
+from src.util import *
+
+import pdb
 
 class ResConvBlock(nn.Module):
     def __init__(self, channels, stride, dilation):
@@ -76,9 +78,10 @@ class DeformConvBlock(nn.Module):
         self.deformConv = DeformConv2d(channels_deform, channels_deform, self.kernel_size, 1, 1, 1)
     
     def forward(self, content_feats, blur_feats):
+        # pdb.set_trace()
         ow = self.conv(blur_feats)
         offset = ow[:,:2*3*3]
-        weight = ow[:.2*3*3:] # Reimplement deformConv?
+        weight = ow[:,2*3*3:] # Reimplement deformConv?
         out = self.deformConv(content_feats, offset)
         return out, offset
 
@@ -97,6 +100,7 @@ class Net(nn.Module):
         self.apply(weights_init)
     
     def forward(self, x):
+        # pdb.set_trace()
         residual = self.shortcut(x)
         feats = self.backbone(x)
         rst1, offset = self.neck1(feats[:,:64],feats[:,64:])

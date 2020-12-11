@@ -1,6 +1,8 @@
-from src.dataset import *
+from src.Dataset_preprocess import *
 from src.loss import loss1, loss2, loss3
 from src.model import Net
+from src.util import *
+import torch.utils.data as data
 
 import torch
 import torch.nn as nn
@@ -9,6 +11,7 @@ from torch.autograd import Variable
 
 import time
 import os
+import pdb
 
 class DeblurTrainer(object):
   """
@@ -27,13 +30,11 @@ class DeblurTrainer(object):
   
   """
  
-  def __init__(self, network, batch_size=64, use_gpu=False, verbosity_level=2):
+  def __init__(self, batch_size=64, use_gpu=False, verbosity_level=2):
     """ Init function
 
     Parameters
     ----------
-    network: :py:class:`torch.nn.Module`
-      The network to train
     batch_size: int
       The size of your minibatch
     use_gpu: boolean
@@ -43,13 +44,10 @@ class DeblurTrainer(object):
 
     """
 
-    self.network = Net()
+    self.network = Net().to(device)
     self.batch_size = batch_size
-    
-    self.use_cuda = torch.cuda.is_available()
-    device = torch.device("cuda:0" if use_cuda else "cpu")
-    torch.backends.cudnn.benchmark = True
-
+    if tensor_dtype == "half":
+      self.network = self.network.half()
 
   def load_model(self, model_filename):
     """Loads an existing model
@@ -103,18 +101,13 @@ class DeblurTrainer(object):
           'state_dict': self.network.cpu().state_dict()
           }
     torch.save(cp, saved_path)
-    
-    # moved the model back to GPU if needed
-    self.network.to(device)
+  
 
-
-  def train(self, dataloader, n_epochs=20, learning_rate=0.01, output_dir='out', model=None):
+  def train(self, n_epochs=20, learning_rate=0.01, output_dir='out', model=None):
     """Performs the training.
 
     Parameters
     ----------
-    dataloader: :py:class:`torch.utils.data.DataLoader`
-      The dataloader for your data
     n_epochs: int
       The number of epochs you would like to train for
     learning_rate: float
@@ -138,7 +131,7 @@ class DeblurTrainer(object):
     optimizer = optim.Adam(self.network.parameters(), learning_rate)
 
     # let's go
-    dataset = Gopro(data_dir = '~/dataset/train/')
+    dataset = Gopro_prepocessed(data_dir = '../../dataset/train/')
     training_generator = data.DataLoader(dataset, batch_size=32, shuffle=True, num_workers=4)
     
     for epoch in range(start_epoch, n_epochs):
@@ -151,19 +144,18 @@ class DeblurTrainer(object):
           batch_size = len(img_input)
           img_input, img_target, opticalflow_1, opticalflow_2 = img_input.to(device), img_target.to(device), opticalflow_1.to(device), opticalflow_2.to(device)
 
-          
-
+          pdb.set_trace()
           recon_img, offset = self.network(img_input)
-          l1 = loss1(recon_img, original_img)
-          l2 = loss2(recon_img, original_img)
-          l2 = loss3(optical_flow, offset)
-          loss = l1 + l2 + l3
+          l1 = loss1(recon_img, img_target)
+          l2 = loss2(recon_img, img_target)
+          l3 = loss3(opticalflow_1, opticalflow_2, offset)
+          loss = (l1 + l2 + l3).mean()
           optimizer.zero_grad()
           loss.backward()
           optimizer.step()
 
           end = time.time()
-          print("[{}/{}][{}/{}] => Loss = {} (time spent: {})".format(epoch, n_epochs, i, len(dataloader), loss.item(), (end-start)))
+          print("[{}/{}][{}/{}] => Loss = {} (time spent: {})".format(epoch, n_epochs, i, len(training_generator), loss.item(), (end-start)))
           losses.append(loss.item())
       
       # evaluation
