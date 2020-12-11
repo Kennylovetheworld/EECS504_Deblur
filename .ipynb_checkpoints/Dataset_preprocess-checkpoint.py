@@ -24,13 +24,19 @@ def transform(img_input, img_target, opticalflow_1, opticalflow_2, patchsize):
     opticalflow_2 = opticalflow_2.permute(2,0,1)
     
     # Random rotation
-    angle = transforms.RandomRotation.get_params([-180, 180])
+    angle = transforms.RandomRotation.get_params([-10, 10])
     img_input = TF.rotate(img_input, angle)   #pytorch:1.7.0, torchvision:0.8.1
     img_target = TF.rotate(img_target, angle)
     opticalflow_1 = TF.rotate(opticalflow_1, angle)
     opticalflow_2 = TF.rotate(opticalflow_2, angle)
-
-    # Random crop
+    
+    # First crop to (520,1080) to eliminate black margin zone
+    img_input = transforms.CenterCrop((520,1080))(img_input)
+    img_target = transforms.CenterCrop((520,1080))(img_target)
+    opticalflow_1 = transforms.CenterCrop((520,1080))(opticalflow_1)
+    opticalflow_2 = transforms.CenterCrop((520,1080))(opticalflow_2)
+    
+    # Random crop to (256,256)
     i, j, h, w = transforms.RandomCrop.get_params(
         img_input, output_size=(patchsize, patchsize))
     img_input = TF.crop(img_input, i, j, h, w)
@@ -68,7 +74,7 @@ def preprocess_dataset(data_dir):
     
     folder_number = 0
     for folder_name in sub_folders:
-        if (folder_name == 'blur_img_all.pt' or folder_name == 'sharp_img_all.pt' or folder_name == 'opticalflow_all.pt' or folder_name == 'log.xlsx' or folder_name == 'log.csv'):
+        if (folder_name == 'blur_img_all.pt' or folder_name == 'sharp_img_all.pt' or folder_name == 'opticalflow_all.pt' or folder_name == 'log.xlsx' or folder_name == 'log.csv' or folder_name == '.ipynb_checkpoints'):
             continue
         folder_number += 1
         sharp_sub_folder = os.path.join(data_dir, folder_name, 'sharp')
@@ -200,24 +206,24 @@ def draw_hsv(flow):
         
         
 if __name__ == '__main__':
-    data_dir = './GOPRO_Large/train/'
+    data_dir = '../../dataset/train/'
     
     #before running this file, run Calculate_opticalflow.py first to calculate optical flow
     
     
     #first time needs to run prepocessing dataset
-    #preprocess_dataset(data_dir)
+    preprocess_dataset(data_dir)
 
 
-    dataset = Gopro_prepocessed(data_dir)
+    #dataset = Gopro_prepocessed(data_dir = data_dir)
     
     #test plot
-    input_img, target_img, opticalflow_1, opticalflow_2 = dataset[int(random.random() * len(dataset))]
+    #input_img, target_img, opticalflow_1, opticalflow_2 = dataset[int(random.random() * len(dataset))]
     #input_img tensor(3,256,256)      range[0-1], dtype = torch.float16
     #target_img tensor(3,256,256)     range[0-1], dtype = torch.float16
     #opticalflow_1 tensor(2,128,128)  range[0-255], dtype = torch.float16
     #opticalflow_2 tensor(2,128,128)  range[0-255], dtype = torch.float16
-    plot(input_img, target_img, opticalflow_1, opticalflow_2)
+    #plot(input_img, target_img, opticalflow_1, opticalflow_2)
     
     #dataloader
     #training_generator = data.DataLoader(dataset, batch_size=32, shuffle=True, num_workers=4)

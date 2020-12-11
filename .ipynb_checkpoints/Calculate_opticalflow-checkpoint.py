@@ -44,4 +44,9 @@ def delete_opticalflow(data_dir):
         opticalflow_sub_folder = os.path.join(data_dir, folder_name, 'opticalflow')
         for file in os.listdir(opticalflow_sub_folder):
             os.remove(os.path.join(opticalflow_sub_folder, file))
+            
+            
+if __name__ == '__main__':
+    data_dir = '../../dataset/train/'
+    calculate_opticalflow(data_dir)
         
