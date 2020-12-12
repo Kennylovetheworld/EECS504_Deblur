@@ -16,6 +16,8 @@ import pdb
 from pynvml import *
 import numpy as np
 
+import matplotlib.pyplot as plt
+
 
 class DeblurTrainer(object):
   """
@@ -137,17 +139,18 @@ class DeblurTrainer(object):
       print('Starting training from scratch')
 
     # setup optimizer
-    optimizer = optim.Adam(self.network.parameters(), 1e-3, (0.9,0.9), 1e-8)
+    optimizer = optim.Adam(self.network.parameters(), 1e-4, (0.9,0.9), 1e-8)
     #optimizer = optim.SGD(self.network.parameters(), 1e-4)
 
     # let's go
     dataset = Gopro_prepocessed(data_dir = 'dataset/train/')
-    training_generator = data.DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=1)
+    training_generator = data.DataLoader(dataset, batch_size=self.batch_size, shuffle=False, num_workers=1)
     val_dataset = Gopro_prepocessed(data_dir = 'dataset/test/')
-    validation_generator = data.DataLoader(val_dataset, batch_size=self.batch_size, shuffle=True, num_workers=1)
+    validation_generator = data.DataLoader(val_dataset, batch_size=self.batch_size, shuffle=False, num_workers=1)
 
     for epoch in range(start_epoch, n_epochs):
-      for i, (img_input, img_target, opticalflow_1, opticalflow_2) in enumerate(training_generator):
+      first_batch = next(iter(training_generator))
+      for i, (img_input, img_target, opticalflow_1, opticalflow_2) in enumerate([first_batch]*10001):
         # torch.cuda.empty_cache()
         if i >= start_iter:
         
@@ -158,6 +161,7 @@ class DeblurTrainer(object):
           # pdb.set_trace()
           recon_img, offset = self.network(img_input)
           # print(recon_img.shape)
+          
           l1 = loss1(recon_img, img_target)
           l2 = loss2(recon_img, img_target, self.vgg16_model)
           l3 = loss3(opticalflow_1, opticalflow_2, offset)
@@ -166,16 +170,22 @@ class DeblurTrainer(object):
           # l3.register_hook(lambda grad: print(grad))
           # offset.register_hook(lambda grad: print(grad))
           # recon_img.register_hook(lambda grad: print(grad))
-          loss = l1.mean()
+          loss = (l1+0.01*l2).mean()
           loss_value = loss.item()
-          # loss = l1.mean()
           optimizer.zero_grad()
           loss.backward()
           optimizer.step()
 
           end = time.time()
-          print("[{}/{}][{}/{}] => Loss = {} (time spent: {})".format(epoch, n_epochs, i, len(training_generator), loss_value, (end-start)))
+          print("Loss = {} ({}\t{}\t{})".format(loss_value, l1.mean().item(),l2.mean().item(),l3.mean().item()))
           losses.append(loss_value)
+
+          if (i%200 == 0):
+            f, axarr = plt.subplots(1,3)
+            axarr[0].imshow(img_input[0].cpu().permute(1,2,0))
+            axarr[1].imshow(img_target[0].cpu().permute(1,2,0))
+            axarr[2].imshow(recon_img[0].detach().cpu().permute(1,2,0))
+            plt.show()
 
           if CHECK_GPU_USAGE:
             print(torch.cuda.is_available())
@@ -185,7 +195,7 @@ class DeblurTrainer(object):
             print(f'total    : {info.total}')
             print(f'free     : {info.free}')
             print(f'used     : {info.used}')
-      
+      break
       # evaluation
       eval_loss = []
       for i, (img_input, img_target, opticalflow_1, opticalflow_2) in enumerate(validation_generator):
@@ -195,7 +205,7 @@ class DeblurTrainer(object):
         l1 = loss1(recon_img, img_target)
         l2 = loss2(recon_img, img_target, self.vgg16_model)
         l3 = loss3(opticalflow_1, opticalflow_2, offset)
-        loss = l1.mean()
+        loss = (l1+l2).mean()
         eval_loss.append(loss.item())
 
       print("Validation loss after epoch [{}/{}] => Loss = {}".format(epoch, n_epochs, np.mean(eval_loss)))
