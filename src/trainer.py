@@ -8,6 +8,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.autograd import Variable
+import torchvision.models as models
 
 import time
 import os
@@ -30,7 +31,7 @@ class DeblurTrainer(object):
   
   """
  
-  def __init__(self, batch_size=64, use_gpu=False, verbosity_level=2):
+  def __init__(self, batch_size=8, use_gpu=False, verbosity_level=2):
     """ Init function
 
     Parameters
@@ -45,6 +46,11 @@ class DeblurTrainer(object):
     """
 
     self.network = Net().to(device)
+    self.vgg16_model = models.vgg16(pretrained=True).features[:26].to(device)
+    if tensor_dtype == 'half':
+        self.vgg16_model = self.vgg16_model.half()
+    self.vgg16_model.eval()
+    # pdb.set_trace()
     self.batch_size = batch_size
     if tensor_dtype == "half":
       self.network = self.network.half()
@@ -132,11 +138,11 @@ class DeblurTrainer(object):
 
     # let's go
     dataset = Gopro_prepocessed(data_dir = '../../dataset/train/')
-    training_generator = data.DataLoader(dataset, batch_size=32, shuffle=True, num_workers=4)
+    training_generator = data.DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=4)
     
     for epoch in range(start_epoch, n_epochs):
       for i, (img_input, img_target, opticalflow_1, opticalflow_2) in enumerate(training_generator):
-   
+        
         if i >= start_iter:
         
           start = time.time()
@@ -147,14 +153,15 @@ class DeblurTrainer(object):
           pdb.set_trace()
           recon_img, offset = self.network(img_input)
           l1 = loss1(recon_img, img_target)
-          l2 = loss2(recon_img, img_target)
+          l2 = loss2(recon_img, img_target, self.vgg16_model)
           l3 = loss3(opticalflow_1, opticalflow_2, offset)
           # l1.register_hook(lambda grad: print(grad))
           # l2.register_hook(lambda grad: print(grad))
           # l3.register_hook(lambda grad: print(grad))
-          offset.register_hook(lambda grad: print(grad))
-          recon_img.register_hook(lambda grad: print(grad))
+          # offset.register_hook(lambda grad: print(grad))
+          # recon_img.register_hook(lambda grad: print(grad))
           loss = (l1 + l2 + l3).mean()
+          # loss = l1.mean()
           optimizer.zero_grad()
           loss.backward()
           optimizer.step()

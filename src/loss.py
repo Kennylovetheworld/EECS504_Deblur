@@ -24,7 +24,7 @@ def loss1(recon_img, original_img):
     return loss1
 
 
-def loss2(recon_img, original_img):
+def loss2(recon_img, original_img, vgg16_model):
     # Preceptual loss for feature map
     # Input:
     #   recon_img, tensor of (B, C, H, W)
@@ -34,10 +34,6 @@ def loss2(recon_img, original_img):
     
     # pdb.set_trace()
     device = recon_img.device
-    vgg16_model = models.vgg16(pretrained=True).features[:26].to(device)
-    if tensor_dtype == 'half':
-        vgg16_model = vgg16_model.half()
-    vgg16_model.eval()
     recon_img_feature = vgg16_model(recon_img)
     original_img_feature = vgg16_model(original_img)
   
