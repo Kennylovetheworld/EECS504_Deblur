@@ -2,7 +2,11 @@ import torch
 from src.trainer import *
 from src.util import *
 
-trainer = DeblurTrainer()
-trainer.train()
 
+def run():
+    trainer = DeblurTrainer()
+    trainer.train()
+
+if __name__ == "__main__":
+    run()
 
