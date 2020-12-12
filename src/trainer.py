@@ -14,6 +14,7 @@ import time
 import os
 import pdb
 from pynvml import *
+import numpy as np
 
 
 class DeblurTrainer(object):
@@ -141,18 +142,15 @@ class DeblurTrainer(object):
     # let's go
     dataset = Gopro_prepocessed(data_dir = '../../dataset/train/')
     training_generator = data.DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=1)
-    
+    val_dataset = Gopro_prepocessed(data_dir = '../../dataset/test/')
+    validation_generator = data.DataLoader(val_dataset, batch_size=self.batch_size, shuffle=True, num_workers=1)
+
     for epoch in range(start_epoch, n_epochs):
       for i, (img_input, img_target, opticalflow_1, opticalflow_2) in enumerate(training_generator):
         # torch.cuda.empty_cache()
         if i >= start_iter:
         
           start = time.time()
-          
-          batch_size = len(img_input)
-
-          tmp = torch.Tensor([0,0]).to(device)
-          print(tmp)
 
           img_input, img_target, opticalflow_1, opticalflow_2 = img_input.to(device), img_target.to(device), opticalflow_1.to(device), opticalflow_2.to(device)
 
@@ -188,7 +186,18 @@ class DeblurTrainer(object):
             print(f'used     : {info.used}')
       
       # evaluation
+      eval_loss = []
+      for i, (img_input, img_target, opticalflow_1, opticalflow_2) in enumerate(validation_generator):
+        self.network.eval()
+        img_input, img_target, opticalflow_1, opticalflow_2 = img_input.to(device), img_target.to(device), opticalflow_1.to(device), opticalflow_2.to(device)
+        recon_img, offset = self.network(img_input)
+        l1 = loss1(recon_img, img_target)
+        l2 = loss2(recon_img, img_target, self.vgg16_model)
+        l3 = loss3(opticalflow_1, opticalflow_2, offset)
+        loss = l1.mean()
+        eval_loss.append(loss.item())
 
+      print("Validation loss after epoch [{}/{}] => Loss = {}".format(epoch, n_epochs, np.mean(eval_loss)))
 
       # do stuff - like saving models
       print("EPOCH {} DONE".format(epoch+1))
