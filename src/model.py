@@ -109,11 +109,11 @@ class Net(nn.Module):
         self.apply(weights_init)
     
     def forward(self, x):
-        if __DEBUG__:
-            pdb.set_trace()
         residual = self.shortcut(x)
         feats = self.backbone(x)
         rst1, offset = self.neck1(feats[:,:64],feats[:,64:])
         rst2, _ = self.neck2(rst1, offset)
         out = residual + self.head(rst2)
+        if __DEBUG__:
+            pdb.set_trace()
         return out, offset

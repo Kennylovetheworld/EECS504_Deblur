@@ -13,6 +13,8 @@ import torchvision.models as models
 import time
 import os
 import pdb
+from pynvml import *
+
 
 class DeblurTrainer(object):
   """
@@ -100,7 +102,7 @@ class DeblurTrainer(object):
     
     saved_filename = 'model_{}_{}.pth'.format(epoch, iteration)    
     saved_path = os.path.join(output_dir, saved_filename)    
-    logger.info('Saving model to {}'.format(saved_path))
+    print('Saving model to {}'.format(saved_path))
     cp = {'epoch': epoch, 
           'iteration': iteration,
           'loss': losses, 
@@ -109,7 +111,7 @@ class DeblurTrainer(object):
     torch.save(cp, saved_path)
   
 
-  def train(self, n_epochs=20, learning_rate=0.01, output_dir='out', model=None):
+  def train(self, n_epochs=20, learning_rate=0.01, output_dir='model_checkpoints', model=None):
     """Performs the training.
 
     Parameters
@@ -138,20 +140,25 @@ class DeblurTrainer(object):
 
     # let's go
     dataset = Gopro_prepocessed(data_dir = '../../dataset/train/')
-    training_generator = data.DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=4)
+    training_generator = data.DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=1)
     
     for epoch in range(start_epoch, n_epochs):
       for i, (img_input, img_target, opticalflow_1, opticalflow_2) in enumerate(training_generator):
-        
+        # torch.cuda.empty_cache()
         if i >= start_iter:
         
           start = time.time()
           
           batch_size = len(img_input)
+
+          tmp = torch.Tensor([0,0]).to(device)
+          print(tmp)
+
           img_input, img_target, opticalflow_1, opticalflow_2 = img_input.to(device), img_target.to(device), opticalflow_1.to(device), opticalflow_2.to(device)
 
-          pdb.set_trace()
+          # pdb.set_trace()
           recon_img, offset = self.network(img_input)
+          # print(recon_img.shape)
           l1 = loss1(recon_img, img_target)
           l2 = loss2(recon_img, img_target, self.vgg16_model)
           l3 = loss3(opticalflow_1, opticalflow_2, offset)
@@ -160,15 +167,25 @@ class DeblurTrainer(object):
           # l3.register_hook(lambda grad: print(grad))
           # offset.register_hook(lambda grad: print(grad))
           # recon_img.register_hook(lambda grad: print(grad))
-          loss = (l1 + l2 + l3).mean()
+          loss = l1.mean()
+          loss_value = loss.item()
           # loss = l1.mean()
           optimizer.zero_grad()
           loss.backward()
           optimizer.step()
 
           end = time.time()
-          print("[{}/{}][{}/{}] => Loss = {} (time spent: {})".format(epoch, n_epochs, i, len(training_generator), loss.item(), (end-start)))
-          losses.append(loss.item())
+          print("[{}/{}][{}/{}] => Loss = {} (time spent: {})".format(epoch, n_epochs, i, len(training_generator), loss_value, (end-start)))
+          losses.append(loss_value)
+
+          if CHECK_GPU_USAGE:
+            print(torch.cuda.is_available())
+            nvmlInit()
+            h = nvmlDeviceGetHandleByIndex(0)
+            info = nvmlDeviceGetMemoryInfo(h)
+            print(f'total    : {info.total}')
+            print(f'free     : {info.free}')
+            print(f'used     : {info.used}')
       
       # evaluation
 

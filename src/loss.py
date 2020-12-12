@@ -18,8 +18,9 @@ def loss1(recon_img, original_img):
     # Output:
     #   loss(B,)
     # pdb.set_trace()
-    device = recon_img.device
-    C, H, W = original_img.shape[1:4]
+
+    # device = recon_img.device
+    # C, H, W = original_img.shape[1:4]
     loss1 = torch.mean((recon_img - original_img)**2, dim = (1,2,3)) / 2
     return loss1
 
@@ -33,11 +34,11 @@ def loss2(recon_img, original_img, vgg16_model):
     #   loss(B,)
     
     # pdb.set_trace()
-    device = recon_img.device
+    # device = recon_img.device
     recon_img_feature = vgg16_model(recon_img)
     original_img_feature = vgg16_model(original_img)
   
-    C, H, W = original_img_feature.shape[1:4]
+    # C, H, W = original_img_feature.shape[1:4]
     loss2 = torch.mean((recon_img_feature - original_img_feature)**2, dim = (1,2,3)) / 2
     # print("loss2 HERE", loss2)
     return loss2
