@@ -34,7 +34,7 @@ class DeblurTrainer(object):
   
   """
  
-  def __init__(self, batch_size=8, use_gpu=False, verbosity_level=2):
+  def __init__(self, batch_size=4, use_gpu=False, verbosity_level=2):
     """ Init function
 
     Parameters
@@ -137,7 +137,8 @@ class DeblurTrainer(object):
       print('Starting training from scratch')
 
     # setup optimizer
-    optimizer = optim.Adam(self.network.parameters(), learning_rate)
+    optimizer = optim.Adam(self.network.parameters(), 1e-3, (0.9,0.9), 1e-8)
+    #optimizer = optim.SGD(self.network.parameters(), 1e-4)
 
     # let's go
     dataset = Gopro_prepocessed(data_dir = 'dataset/train/')
@@ -201,4 +202,4 @@ class DeblurTrainer(object):
 
       # do stuff - like saving models
       print("EPOCH {} DONE".format(epoch+1))
-      self.save_model(output_dir, epoch=(epoch+1), iteration=0, losses=losses)
+      #self.save_model(output_dir, epoch=(epoch+1), iteration=0, losses=losses)

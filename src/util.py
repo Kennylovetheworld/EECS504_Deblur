@@ -13,6 +13,7 @@ tensor_dtype = "float"
 
 def weights_init(m):
     if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d) or isinstance(m, DeformConv2d):
+        #torch.manual_seed(3)
         nn.init.xavier_uniform_(m.weight)
         if m.bias is not None:
             nn.init.zeros_(m.bias)
