@@ -8,8 +8,6 @@ import torch
 import torchvision.models as models
 from src.util import *
 
-import pdb
-
 def loss1(recon_img, original_img):
     # Pixel loss for reconstructed img and original img
     # Input:
@@ -17,10 +15,9 @@ def loss1(recon_img, original_img):
     #   origial_img, tensor of (B, C, H, W)
     # Output:
     #   loss(B,)
-    # pdb.set_trace()
     device = recon_img.device
     C, H, W = original_img.shape[1:4]
-    loss1 = torch.mean((recon_img - original_img)**2, dim = (1,2,3)) / 2
+    loss1 = torch.sum((recon_img - original_img)**2,dim=(3,2,1)) / (2*C*H*W)
     return loss1
 
 
@@ -32,7 +29,6 @@ def loss2(recon_img, original_img):
     # Output:
     #   loss(B,)
     
-    # pdb.set_trace()
     device = recon_img.device
     vgg16_model = models.vgg16(pretrained=True).features[:26].to(device)
     if tensor_dtype == 'half':
@@ -42,8 +38,8 @@ def loss2(recon_img, original_img):
     original_img_feature = vgg16_model(original_img)
   
     C, H, W = original_img_feature.shape[1:4]
-    loss2 = torch.mean((recon_img_feature - original_img_feature)**2, dim = (1,2,3)) / 2
-    # print("loss2 HERE", loss2)
+    loss2 = torch.sum((recon_img_feature - original_img_feature)**2,dim=(3,2,1)) / (2*C*H*W)
+    print("loss2 HERE", loss2)
     return loss2
   
   
@@ -62,8 +58,6 @@ def loss3(optical_flow1, optical_flow2, deformable_conv, M=10):
     # Output:
     #   loss(B,)
     
-    # pdb.set_trace()
-
     device = deformable_conv.device
     # Sampling points, dxdy
     dx1 = deformable_conv[:,0:9,31,31] #(B,9)

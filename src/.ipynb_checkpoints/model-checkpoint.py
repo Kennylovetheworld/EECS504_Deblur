@@ -4,7 +4,7 @@ from torchvision.ops import DeformConv2d
 from src.util import *
 
 
-__DEBUG__ = True
+__DEBUG__ = False
 if __DEBUG__:
     import pdb
 
