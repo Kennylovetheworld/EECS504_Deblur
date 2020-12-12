@@ -140,9 +140,9 @@ class DeblurTrainer(object):
     optimizer = optim.Adam(self.network.parameters(), learning_rate)
 
     # let's go
-    dataset = Gopro_prepocessed(data_dir = '../../dataset/train/')
+    dataset = Gopro_prepocessed(data_dir = 'dataset/train/')
     training_generator = data.DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=1)
-    val_dataset = Gopro_prepocessed(data_dir = '../../dataset/test/')
+    val_dataset = Gopro_prepocessed(data_dir = 'dataset/test/')
     validation_generator = data.DataLoader(val_dataset, batch_size=self.batch_size, shuffle=True, num_workers=1)
 
     for epoch in range(start_epoch, n_epochs):
