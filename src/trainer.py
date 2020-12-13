@@ -19,194 +19,193 @@ import numpy as np
 
 
 class DeblurTrainer(object):
-  """
-  Class to train a CNN
-  Attributes
-  ----------
-  network: :py:class:`torch.nn.Module`
-    The network to train
-  batch_size: int
-    The size of your minibatch
-  use_gpu: boolean
-    If you would like to use the gpu
-  verbosity_level: int
-    The level of verbosity output to stdout
-  
-  """
- 
-  def __init__(self, batch_size=8, use_gpu=False, verbosity_level=2):
-    """ Init function
-    Parameters
+    """
+    Class to train a CNN
+    Attributes
     ----------
+    network: :py:class:`torch.nn.Module`
+        The network to train
     batch_size: int
-      The size of your minibatch
+        The size of your minibatch
     use_gpu: boolean
-      If you would like to use the gpu
+        If you would like to use the gpu
     verbosity_level: int
-      The level of verbosity output to stdout
-    """
-
-    self.network = Net().to(device)
-    self.vgg16_model = models.vgg16(pretrained=True).features[:26].to(device)
-    if tensor_dtype == 'half':
-        self.vgg16_model = self.vgg16_model.half()
-    self.vgg16_model.eval()
-    # pdb.set_trace()
-    self.batch_size = batch_size
-    if tensor_dtype == "half":
-      self.network = self.network.half()
-
-    self.l2_weight = 0.01
-    self.l3_weight = 0
-
-  def load_model(self, model_filename):
-    """Loads an existing model
-    Parameters
-    ----------
-    model_file: str
-      The filename of the model to load
-    Returns
-    -------
-    start_epoch: int
-      The epoch to start with
-    start_iteration: int
-      The iteration to start with
-    losses: list(float)
-      The list of losses from previous training 
+        The level of verbosity output to stdout
     
     """
     
-    cp = torch.load(model_filename)
-    self.network.load_state_dict(cp['state_dict'])
-    start_epoch = cp['epoch']
-    start_iter = cp['iteration']
-    losses = cp['loss']
-    return start_epoch, start_iter, losses
+    def __init__(self, batch_size=8, use_gpu=False, verbosity_level=2):
+        """ Init function
+        Parameters
+        ----------
+        batch_size: int
+        The size of your minibatch
+        use_gpu: boolean
+        If you would like to use the gpu
+        verbosity_level: int
+        The level of verbosity output to stdout
+        """
 
+        self.network = Net().to(device)
+        self.vgg16_model = models.vgg16(pretrained=True).features[:26].to(device)
+        if tensor_dtype == 'half':
+            self.vgg16_model = self.vgg16_model.half()
+        self.vgg16_model.eval()
+        # pdb.set_trace()
+        self.batch_size = batch_size
+        if tensor_dtype == "half":
+            self.network = self.network.half()
 
-  def save_model(self, output_dir, epoch=0, iteration=0, losses=None):
-    """Save the trained network
-    Parameters
-    ----------
-    output_dir: str
-      The directory to write the models to
-    epoch: int
-      the current epoch
-    iteration: int
-      the current (last) iteration
-    losses: list(float)
-        The list of losses since the beginning of training 
-    
-    """ 
-    
-    saved_filename = 'model_{}_{}.pth'.format(epoch, iteration)    
-    saved_path = os.path.join(output_dir, saved_filename)    
-    print('Saving model to {}'.format(saved_path))
-    cp = {'epoch': epoch, 
-          'iteration': iteration,
-          'loss': losses, 
-          'state_dict': self.network.cpu().state_dict()
-          }
-    torch.save(cp, saved_path)
-  
+        self.l2_weight = 0.01
+        self.l3_weight = 0
 
-  def train(self, n_epochs=20, learning_rate=1e-3, output_dir='model_checkpoints', recon_dir = 'recon_example', model=None):
-    """Performs the training.
-    Parameters
-    ----------
-    n_epochs: int
-      The number of epochs you would like to train for
-    learning_rate: float
-      The learning rate for SGD optimizer.
-    output_dir: str
-      The directory where you would like to save models 
-    
-    """
-    
-    # if model exists, load it
-    if model is not None:
-      start_epoch, start_iter, losses = self.load_model(model)
-      print('Starting training at epoch {}, iteration {} - last loss value is {}'.format(start_epoch, start_iter, losses[-1]))
-    else:
-      start_epoch = 0
-      start_iter = 0
-      losses = []
-      print('Starting training from scratch')
-
-    # setup optimizer
-    optimizer = optim.Adam(self.network.parameters(), learning_rate, (0.9,0.9))
-
-    # let's go
-    dataset = Gopro_prepocessed(data_dir = '../../dataset/train/')
-    training_generator = data.DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=1)
-    val_dataset = Gopro_prepocessed(data_dir = '../../dataset/test/')
-    validation_generator = data.DataLoader(val_dataset, batch_size=self.batch_size, shuffle=True, num_workers=1)
-
-    for epoch in range(start_epoch, n_epochs):
-      for i, (img_input, img_target, opticalflow_1, opticalflow_2) in enumerate(training_generator):
-        # torch.cuda.empty_cache()
-        if i >= start_iter:
+    def load_model(self, model_filename):
+        """Loads an existing model
+        Parameters
+        ----------
+        model_file: str
+        The filename of the model to load
+        Returns
+        -------
+        start_epoch: int
+        The epoch to start with
+        start_iteration: int
+        The iteration to start with
+        losses: list(float)
+        The list of losses from previous training 
         
-          start = time.time()
-
-          img_input, img_target, opticalflow_1, opticalflow_2 = img_input.to(device), img_target.to(device), opticalflow_1.to(device), opticalflow_2.to(device)
-
-          # pdb.set_trace()
-          recon_img, offset = self.network(img_input)
-          # print(recon_img.shape)
-          l1 = loss1(recon_img, img_target)
-          l2 = loss2(recon_img, img_target, self.vgg16_model)
-          l3 = loss3(opticalflow_1, opticalflow_2, offset)
-          # l1.register_hook(lambda grad: print(grad))
-          # l2.register_hook(lambda grad: print(grad))
-          # l3.register_hook(lambda grad: print(grad))
-          # offset.register_hook(lambda grad: print(grad))
-          # recon_img.register_hook(lambda grad: print(grad))
-          loss = (l1+ self.l2_weight*l2 + self.l3_weight*l3).mean()
-          loss_value = loss.item()
-          optimizer.zero_grad()
-          loss.backward()
-          optimizer.step()
-
-          end = time.time()
-          print("[{}/{}][{}/{}] => Loss = {} (time spent: {})".format(epoch, n_epochs, i, len(training_generator), loss_value, (end-start)))
-          losses.append(loss_value)
+        """
         
-          if CHECK_GPU_USAGE:
-            print(torch.cuda.is_available())
-            nvmlInit()
-            h = nvmlDeviceGetHandleByIndex(0)
-            info = nvmlDeviceGetMemoryInfo(h)
-            print(f'total    : {info.total}')
-            print(f'free     : {info.free}')
-            print(f'used     : {info.used}')
-          
-          if (i%200 == 0):
-            saved_filename = 'reconImg_{}.png'.format(epoch)
-            f, axarr = plt.subplots(1,3)
-            axarr[0].imshow(img_input[0].cpu().permute(1,2,0))
-            axarr[1].imshow(img_target[0].cpu().permute(1,2,0))
-            axarr[2].imshow(recon_img[0].detach().cpu().permute(1,2,0))
-            plt.savefig(os.path.join(recon_dir, saved_filename))
+        cp = torch.load(model_filename)
+        self.network.load_state_dict(cp['state_dict'])
+        start_epoch = cp['epoch']
+        start_iter = cp['iteration']
+        losses = cp['loss']
+        return start_epoch, start_iter, losses
+
+
+    def save_model(self, output_dir, epoch=0, iteration=0, losses=None):
+        """Save the trained network
+        Parameters
+        ----------
+        output_dir: str
+        The directory to write the models to
+        epoch: int
+        the current epoch
+        iteration: int
+        the current (last) iteration
+        losses: list(float)
+            The list of losses since the beginning of training 
         
+        """ 
+        
+        saved_filename = 'model_{}_{}.pth'.format(epoch, iteration)    
+        saved_path = os.path.join(output_dir, saved_filename)    
+        print('Saving model to {}'.format(saved_path))
+        cp = {'epoch': epoch, 
+            'iteration': iteration,
+            'loss': losses, 
+            'state_dict': self.network.cpu().state_dict()
+            }
+        torch.save(cp, saved_path)
+    
 
+    def train(self, n_epochs=20, learning_rate=1e-3, output_dir='model_checkpoints', recon_dir = 'recon_example', model=None):
+        """Performs the training.
+        Parameters
+        ----------
+        n_epochs: int
+        The number of epochs you would like to train for
+        learning_rate: float
+        The learning rate for SGD optimizer.
+        output_dir: str
+        The directory where you would like to save models 
+        
+        """
+        
+        # if model exists, load it
+        if model is not None:
+            start_epoch, start_iter, losses = self.load_model(model)
+            print('Starting training at epoch {}, iteration {} - last loss value is {}'.format(start_epoch, start_iter, losses[-1]))
+        else:
+            start_epoch = 0
+            start_iter = 0
+            losses = []
+            print('Starting training from scratch')
 
+        # setup optimizer
+        optimizer = optim.Adam(self.network.parameters(), learning_rate, (0.9,0.9))
 
-      print("Training loss after epoch [{}/{}] => Loss = {}".format(epoch, n_epochs, np.mean(losses[-len(training_generator):])))
-      # evaluation
-      eval_loss = []
-      for i, (img_input, img_target, opticalflow_1, opticalflow_2) in enumerate(validation_generator):
-        self.network.eval()
-        img_input, img_target, opticalflow_1, opticalflow_2 = img_input.to(device), img_target.to(device), opticalflow_1.to(device), opticalflow_2.to(device)
-        recon_img, offset = self.network(img_input)
-        l1 = loss1(recon_img, img_target)
-        l2 = loss2(recon_img, img_target, self.vgg16_model)
-        l3 = loss3(opticalflow_1, opticalflow_2, offset)
-        loss = (l1+ self.l2_weight*l2 + self.l3_weight*l3).mean()
-        eval_loss.append(loss.item())
+        # let's go
+        dataset = Gopro_prepocessed(data_dir = '../../dataset/train/')
+        training_generator = data.DataLoader(dataset, batch_size=self.batch_size, shuffle=True, num_workers=1)
+        val_dataset = Gopro_prepocessed(data_dir = '../../dataset/test/')
+        validation_generator = data.DataLoader(val_dataset, batch_size=self.batch_size, shuffle=True, num_workers=1)
 
-      print("Validation loss after epoch [{}/{}] => Loss = {}".format(epoch, n_epochs, np.mean(eval_loss)))
+        for epoch in range(start_epoch, n_epochs):
+            for i, (img_input, img_target, opticalflow_1, opticalflow_2) in enumerate(training_generator):
+                # torch.cuda.empty_cache()
+                if i >= start_iter:
+                
+                    start = time.time()
 
-      # do stuff - like saving models
-      print("EPOCH {} DONE".format(epoch+1))
-      self.save_model(output_dir, epoch=(epoch+1), iteration=0, losses=losses)
+                    img_input, img_target, opticalflow_1, opticalflow_2 = img_input.to(device), img_target.to(device), opticalflow_1.to(device), opticalflow_2.to(device)
+
+                    # pdb.set_trace()
+                    recon_img, offset = self.network(img_input)
+                    # print(recon_img.shape)
+                    l1 = loss1(recon_img, img_target)
+                    l2 = loss2(recon_img, img_target, self.vgg16_model)
+                    l3 = loss3(opticalflow_1, opticalflow_2, offset)
+                    # l1.register_hook(lambda grad: print(grad))
+                    # l2.register_hook(lambda grad: print(grad))
+                    # l3.register_hook(lambda grad: print(grad))
+                    # offset.register_hook(lambda grad: print(grad))
+                    # recon_img.register_hook(lambda grad: print(grad))
+                    loss = (l1+ self.l2_weight*l2 + self.l3_weight*l3).mean()
+                    loss_value = loss.item()
+                    optimizer.zero_grad()
+                    loss.backward()
+                    optimizer.step()
+
+                    end = time.time()
+                    if i % 20 == 0:
+                        print("[{}/{}][{}/{}] => Loss = {} (time spent: {})".format(epoch, n_epochs, i, len(training_generator), loss_value, (end-start)))
+                    losses.append(loss_value)
+                
+                    if CHECK_GPU_USAGE:
+                        print(torch.cuda.is_available())
+                        nvmlInit()
+                        h = nvmlDeviceGetHandleByIndex(0)
+                        info = nvmlDeviceGetMemoryInfo(h)
+                        print(f'total    : {info.total}')
+                        print(f'free     : {info.free}')
+                        print(f'used     : {info.used}')
+                    
+                    if (i%200 == 0):
+                        saved_filename = 'reconImg_{}.png'.format(epoch)
+                        f, axarr = plt.subplots(1,3)
+                        axarr[0].imshow(img_input[0].cpu().permute(1,2,0))
+                        axarr[1].imshow(img_target[0].cpu().permute(1,2,0))
+                        axarr[2].imshow(recon_img[0].detach().cpu().permute(1,2,0))
+                        plt.savefig(os.path.join(recon_dir, saved_filename))
+            
+            print("Training loss after epoch [{}/{}] => Loss = {}".format(epoch, n_epochs, np.mean(losses[-len(training_generator):])))
+            # evaluation
+            eval_loss = []
+            for i, (img_input, img_target, opticalflow_1, opticalflow_2) in enumerate(validation_generator):
+                self.network.eval()
+                img_input, img_target, opticalflow_1, opticalflow_2 = img_input.to(device), img_target.to(device), opticalflow_1.to(device), opticalflow_2.to(device)
+                recon_img, offset = self.network(img_input)
+                l1 = loss1(recon_img, img_target)
+                l2 = loss2(recon_img, img_target, self.vgg16_model)
+                l3 = loss3(opticalflow_1, opticalflow_2, offset)
+                loss = (l1+ self.l2_weight*l2 + self.l3_weight*l3).mean()
+                eval_loss.append(loss.item())
+
+            print("Validation loss after epoch [{}/{}] => Loss = {}".format(epoch, n_epochs, np.mean(eval_loss)))
+
+            # do stuff - like saving models
+            print("EPOCH {} DONE".format(epoch+1))
+            if epoch % 5 == 0:
+                self.save_model(output_dir, epoch=(epoch+1), iteration=0, losses=losses)
