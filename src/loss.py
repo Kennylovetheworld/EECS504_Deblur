@@ -22,6 +22,10 @@ def loss1(recon_img, original_img):
     # device = recon_img.device
     # C, H, W = original_img.shape[1:4]
     loss1 = torch.mean((recon_img - original_img)**2, dim = (1,2,3)) / 2
+    
+    #print(loss1)
+    #print(recon_img[:1,:1,:1,:1])
+    #print(original_img[:1,:1,:1,:1])
     return loss1
 
 

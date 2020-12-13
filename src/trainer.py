@@ -194,7 +194,7 @@ class DeblurTrainer(object):
         l1 = loss1(recon_img, img_target)
         l2 = loss2(recon_img, img_target, self.vgg16_model)
         l3 = loss3(opticalflow_1, opticalflow_2, offset)
-        loss = l1.mean()
+        loss = (l1 + l2 + l3).mean()
         eval_loss.append(loss.item())
 
       print("Validation loss after epoch [{}/{}] => Loss = {}".format(epoch, n_epochs, np.mean(eval_loss)))

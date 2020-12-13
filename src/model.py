@@ -83,15 +83,16 @@ class DeformConvBlock(nn.Module):
             self.conv.add_module("conv %d"%i, nn.Conv2d(channels_conv, channels_conv, self.kernel_size, 1, 1, 1))
         if use_act:
             self.conv.add_module("act_final", nn.PReLU(channels_conv))
-        self.conv.add_module("conv_final", nn.Conv2d(channels_conv, 3*3*3, self.kernel_size, 1, 1, 1))
+        self.conv.add_module("conv_final", nn.Conv2d(channels_conv, 64 + 2*3*3, self.kernel_size, 1, 1, 1))
         self.deformConv = DeformConv2d(channels_deform, channels_deform, self.kernel_size, 1, 1, 1)
     
     def forward(self, content_feats, blur_feats):
         # pdb.set_trace()
         ow = self.conv(blur_feats)
         offset = ow[:,:2*3*3]
-        weight = ow[:,2*3*3:] # Reimplement deformConv?
-        out = self.deformConv(content_feats, offset)
+        weight = ow[:,2*3*3:]
+        weighted_feats = content_feats * weight
+        out = self.deformConv(weighted_feats, offset)
         return out, offset
 
 class Net(nn.Module):

@@ -209,7 +209,7 @@ def draw_hsv(flow):
         
         
 if __name__ == '__main__':
-    data_dir = '../../../dataset/train/'
+    data_dir = '../../../dataset/test/'
     
     #before running this file, run Calculate_opticalflow.py first to calculate optical flow
     

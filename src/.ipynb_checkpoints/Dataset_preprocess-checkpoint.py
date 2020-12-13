@@ -209,7 +209,7 @@ def draw_hsv(flow):
         
         
 if __name__ == '__main__':
-    data_dir = '../../../dataset/train/'
+    data_dir = '../../../dataset/test/'
     
     #before running this file, run Calculate_opticalflow.py first to calculate optical flow
     
@@ -222,10 +222,10 @@ if __name__ == '__main__':
     
     #test plot
     #input_img, target_img, opticalflow_1, opticalflow_2 = dataset[int(random.random() * len(dataset))]
-    #input_img tensor(3,256,256)      range[0-1], dtype = torch.float16
-    #target_img tensor(3,256,256)     range[0-1], dtype = torch.float16
-    #opticalflow_1 tensor(2,128,128)  range[0-255], dtype = torch.float16
-    #opticalflow_2 tensor(2,128,128)  range[0-255], dtype = torch.float16
+    #input_img tensor(3,256,256)      range[0-1], dtype = torch.float32
+    #target_img tensor(3,256,256)     range[0-1], dtype = torch.float32
+    #opticalflow_1 tensor(2,128,128)  range[0-255], dtype = torch.float32
+    #opticalflow_2 tensor(2,128,128)  range[0-255], dtype = torch.float32
     #plot(input_img, target_img, opticalflow_1, opticalflow_2)
     
     #dataloader
