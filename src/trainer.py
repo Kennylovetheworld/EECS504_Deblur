@@ -112,7 +112,7 @@ class DeblurTrainer(object):
     torch.save(cp, saved_path)
   
 
-  def train(self, n_epochs=20, learning_rate=0.01, output_dir='model_checkpoints', model=None):
+  def train(self, n_epochs=20, learning_rate=1e-3, output_dir='model_checkpoints', model=None):
     """Performs the training.
 
     Parameters
@@ -137,7 +137,7 @@ class DeblurTrainer(object):
       print('Starting training from scratch')
 
     # setup optimizer
-    optimizer = optim.Adam(self.network.parameters(), learning_rate)
+    optimizer = optim.Adam(self.network.parameters(), learning_rate, (0.9,0.9))
 
     # let's go
     dataset = Gopro_prepocessed(data_dir = '../../dataset/train/')
