@@ -154,13 +154,13 @@ def preprocess_dataset(data_dir):
         opticalflow_all[idx + 2*n_samples, 0, :, :, :] = opticalflow_1_3
         opticalflow_all[idx + 2*n_samples, 1, :, :, :] = opticalflow_2_3
         
-        blur_img_all[idx + 3*n_samples, :, :, :] = img_input_1
-        sharp_img_all[idx + 3*n_samples, :, :, :] = img_target_1
+        blur_img_all[idx + 3*n_samples, :, :, :] = img_input_4
+        sharp_img_all[idx + 3*n_samples, :, :, :] = img_target_4
         opticalflow_all[idx + 3*n_samples, 0, :, :, :] = opticalflow_1_4
         opticalflow_all[idx + 3*n_samples, 1, :, :, :] = opticalflow_2_4
         
-        blur_img_all[idx + 4*n_samples, :, :, :] = img_input_1
-        sharp_img_all[idx + 4*n_samples, :, :, :] = img_target_1
+        blur_img_all[idx + 4*n_samples, :, :, :] = img_input_5
+        sharp_img_all[idx + 4*n_samples, :, :, :] = img_target_5
         opticalflow_all[idx + 4*n_samples, 0, :, :, :] = opticalflow_1_5
         opticalflow_all[idx + 4*n_samples, 1, :, :, :] = opticalflow_2_5
         
