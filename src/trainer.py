@@ -56,6 +56,9 @@ class DeblurTrainer(object):
     if tensor_dtype == "half":
       self.network = self.network.half()
 
+    self.l2_weight = 0.01
+    self.l3_weight = 0
+
   def load_model(self, model_filename):
     """Loads an existing model
     Parameters
@@ -107,7 +110,7 @@ class DeblurTrainer(object):
     torch.save(cp, saved_path)
   
 
-  def train(self, n_epochs=20, learning_rate=1e-3, output_dir='model_checkpoints', model=None):
+  def train(self, n_epochs=20, learning_rate=1e-3, output_dir='model_checkpoints', recon_dir = 'recon_example', model=None):
     """Performs the training.
     Parameters
     ----------
@@ -159,9 +162,8 @@ class DeblurTrainer(object):
           # l3.register_hook(lambda grad: print(grad))
           # offset.register_hook(lambda grad: print(grad))
           # recon_img.register_hook(lambda grad: print(grad))
-          loss = l1.mean()
+          loss = (l1+ self.l2_weight*l2 + self.l3_weight*l3).mean()
           loss_value = loss.item()
-          # loss = l1.mean()
           optimizer.zero_grad()
           loss.backward()
           optimizer.step()
@@ -169,7 +171,7 @@ class DeblurTrainer(object):
           end = time.time()
           print("[{}/{}][{}/{}] => Loss = {} (time spent: {})".format(epoch, n_epochs, i, len(training_generator), loss_value, (end-start)))
           losses.append(loss_value)
-
+        
           if CHECK_GPU_USAGE:
             print(torch.cuda.is_available())
             nvmlInit()
@@ -178,7 +180,19 @@ class DeblurTrainer(object):
             print(f'total    : {info.total}')
             print(f'free     : {info.free}')
             print(f'used     : {info.used}')
-      
+          
+          if (i%200 == 0):
+            saved_filename = 'reconImg_{}.png'.format(epoch)
+            f, axarr = plt.subplots(1,3)
+            axarr[0].imshow(img_input[0].cpu().permute(1,2,0))
+            axarr[1].imshow(img_target[0].cpu().permute(1,2,0))
+            axarr[2].imshow(recon_img[0].detach().cpu().permute(1,2,0))
+            plt.savefig(os.path.join(recon_dir, saved_filename))
+        
+
+
+
+      print("Training loss after epoch [{}/{}] => Loss = {}".format(epoch, n_epochs, np.mean(losses[-len(training_generator):])))
       # evaluation
       eval_loss = []
       for i, (img_input, img_target, opticalflow_1, opticalflow_2) in enumerate(validation_generator):
@@ -188,7 +202,7 @@ class DeblurTrainer(object):
         l1 = loss1(recon_img, img_target)
         l2 = loss2(recon_img, img_target, self.vgg16_model)
         l3 = loss3(opticalflow_1, opticalflow_2, offset)
-        loss = (l1 + l2 + l3).mean()
+        loss = (l1+ self.l2_weight*l2 + self.l3_weight*l3).mean()
         eval_loss.append(loss.item())
 
       print("Validation loss after epoch [{}/{}] => Loss = {}".format(epoch, n_epochs, np.mean(eval_loss)))
