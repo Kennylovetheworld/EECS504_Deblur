@@ -57,7 +57,7 @@ class DeblurTrainer(object):
             self.network = self.network.half()
 
         self.l2_weight = 0.5
-        self.l3_weight = 0.0
+        self.l3_weight = 0.00001
 
     def load_model(self, model_filename):
         """Loads an existing model
@@ -111,7 +111,7 @@ class DeblurTrainer(object):
         torch.save(cp, saved_path)
     
 
-    def train(self, n_epochs=20, learning_rate=1e-3, output_dir='model_checkpoints', recon_dir = 'recon_example', model=None):
+    def train(self, n_epochs=2000, learning_rate=1e-3, output_dir='model_checkpoints', recon_dir = 'recon_example', model=None):
         """Performs the training.
         Parameters
         ----------
@@ -144,13 +144,13 @@ class DeblurTrainer(object):
         validation_generator = data.DataLoader(val_dataset, batch_size=self.batch_size, shuffle=True, num_workers=1)
 
         for epoch in range(start_epoch, n_epochs):
-            for i, (img_input, img_target, opticalflow_1, opticalflow_2) in enumerate(training_generator):
+            for i, (img_input_i, img_target_i, opticalflow_1_i, opticalflow_2_i) in enumerate(training_generator):
                 # torch.cuda.empty_cache()
                 if i >= start_iter:
                 
                     start = time.time()
 
-                    img_input, img_target, opticalflow_1, opticalflow_2 = img_input.to(device), img_target.to(device), opticalflow_1.to(device), opticalflow_2.to(device)
+                    img_input, img_target, opticalflow_1, opticalflow_2 = img_input_i.to(device), img_target_i.to(device), opticalflow_1_i.to(device), opticalflow_2_i.to(device)
 
                     # pdb.set_trace()
                     recon_img, offset = self.network(img_input)
@@ -173,7 +173,7 @@ class DeblurTrainer(object):
                     optimizer.step()
 
                     end = time.time()
-                    if i % 100 == 0:
+                    if i % 200 == 0:
                         print("[{}/{}][{}/{}] => Loss = {} (time spent: {})".format(epoch, n_epochs, i, len(training_generator), loss_value, (end-start)))
                         print("l1: {}, l2: {}, l3: {}".format(l1_value,l2_value,l3_value))
                     losses.append(loss_value)
@@ -187,7 +187,7 @@ class DeblurTrainer(object):
                         print(f'free     : {info.free}')
                         print(f'used     : {info.used}')
                     
-                    if (i%200 == 0):
+                    if (i%1000 == 0):
                         saved_filename = 'reconImg_{}.png'.format(epoch)
                         f, axarr = plt.subplots(1,3)
                         axarr[0].imshow(img_input[0].cpu().permute(1,2,0))
