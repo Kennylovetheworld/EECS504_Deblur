@@ -4,6 +4,8 @@ from torchvision.ops import DeformConv2d
 from src.util import *
 
 
+__USE_WEIGHT__ = False
+
 __DEBUG__ = False
 if __DEBUG__:
     import pdb
@@ -83,16 +85,22 @@ class DeformConvBlock(nn.Module):
             self.conv.add_module("conv %d"%i, nn.Conv2d(channels_conv, channels_conv, self.kernel_size, 1, 1, 1))
         if use_act:
             self.conv.add_module("act_final", nn.PReLU(channels_conv))
-        self.conv.add_module("conv_final", nn.Conv2d(channels_conv, 64 + 2*3*3, self.kernel_size, 1, 1, 1))
+        if __USE_WEIGHT__:
+            self.conv.add_module("conv_final", nn.Conv2d(channels_conv, 64 + 2*3*3, self.kernel_size, 1, 1, 1))
+        else:
+            self.conv.add_module("conv_final", nn.Conv2d(channels_conv, 2*3*3, self.kernel_size, 1, 1, 1))
         self.deformConv = DeformConv2d(channels_deform, channels_deform, self.kernel_size, 1, 1, 1)
     
     def forward(self, content_feats, blur_feats):
         # pdb.set_trace()
         ow = self.conv(blur_feats)
         offset = ow[:,:2*3*3]
-        weight = ow[:,2*3*3:]
-        weighted_feats = content_feats * weight
-        out = self.deformConv(weighted_feats, offset)
+        if __USE_WEIGHT__:
+            weight = ow[:,2*3*3:]
+            weighted_feats = content_feats * weight
+            out = self.deformConv(weighted_feats, offset)
+        else:
+            out = self.deformConv(content_feats,offset)
         return out, offset
 
 class Net(nn.Module):
