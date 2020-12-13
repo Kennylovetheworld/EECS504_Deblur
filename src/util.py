@@ -8,6 +8,7 @@ device = torch.device("cuda:0" if use_cuda else "cpu")
 torch.backends.cudnn.benchmark = True
 
 CHECK_GPU_USAGE = False
+EVAL_ON_TEST = False
 
 tensor_dtype = "float"
 

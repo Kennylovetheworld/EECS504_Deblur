@@ -56,7 +56,7 @@ class DeblurTrainer(object):
         if tensor_dtype == "half":
             self.network = self.network.half()
 
-        self.l2_weight = 0.01
+        self.l2_weight = 0.05
         self.l3_weight = 0
 
     def load_model(self, model_filename):
@@ -191,19 +191,21 @@ class DeblurTrainer(object):
                         plt.savefig(os.path.join(recon_dir, saved_filename))
             
             print("Training loss after epoch [{}/{}] => Loss = {}".format(epoch, n_epochs, np.mean(losses[-len(training_generator):])))
-            # evaluation
-            eval_loss = []
-            for i, (img_input, img_target, opticalflow_1, opticalflow_2) in enumerate(validation_generator):
-                self.network.eval()
-                img_input, img_target, opticalflow_1, opticalflow_2 = img_input.to(device), img_target.to(device), opticalflow_1.to(device), opticalflow_2.to(device)
-                recon_img, offset = self.network(img_input)
-                l1 = loss1(recon_img, img_target)
-                l2 = loss2(recon_img, img_target, self.vgg16_model)
-                l3 = loss3(opticalflow_1, opticalflow_2, offset)
-                loss = (l1+ self.l2_weight*l2 + self.l3_weight*l3).mean()
-                eval_loss.append(loss.item())
+            
+            if EVAL_ON_TEST:
+                # evaluation
+                eval_loss = []
+                for i, (img_input, img_target, opticalflow_1, opticalflow_2) in enumerate(validation_generator):
+                    self.network.eval()
+                    img_input, img_target, opticalflow_1, opticalflow_2 = img_input.to(device), img_target.to(device), opticalflow_1.to(device), opticalflow_2.to(device)
+                    recon_img, offset = self.network(img_input)
+                    l1 = loss1(recon_img, img_target)
+                    l2 = loss2(recon_img, img_target, self.vgg16_model)
+                    l3 = loss3(opticalflow_1, opticalflow_2, offset)
+                    loss = (l1+ self.l2_weight*l2 + self.l3_weight*l3).mean()
+                    eval_loss.append(loss.item())
 
-            print("Validation loss after epoch [{}/{}] => Loss = {}".format(epoch, n_epochs, np.mean(eval_loss)))
+                print("Validation loss after epoch [{}/{}] => Loss = {}".format(epoch, n_epochs, np.mean(eval_loss)))
 
             # do stuff - like saving models
             print("EPOCH {} DONE".format(epoch+1))
