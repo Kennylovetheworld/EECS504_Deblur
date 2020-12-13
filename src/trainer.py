@@ -56,7 +56,7 @@ class DeblurTrainer(object):
         if tensor_dtype == "half":
             self.network = self.network.half()
 
-        self.l2_weight = 0.05
+        self.l2_weight = 0.1
         self.l3_weight = 0
 
     def load_model(self, model_filename):
@@ -107,6 +107,7 @@ class DeblurTrainer(object):
             'loss': losses, 
             'state_dict': self.network.cpu().state_dict()
             }
+        self.network.to(device)
         torch.save(cp, saved_path)
     
 
@@ -164,13 +165,17 @@ class DeblurTrainer(object):
                     # recon_img.register_hook(lambda grad: print(grad))
                     loss = (l1+ self.l2_weight*l2 + self.l3_weight*l3).mean()
                     loss_value = loss.item()
+                    l1_value = l1.mean().item()
+                    l2_value = l2.mean().item()
+                    l3_value = l3.mean().item()
                     optimizer.zero_grad()
                     loss.backward()
                     optimizer.step()
 
                     end = time.time()
-                    if i % 20 == 0:
+                    if i % 100 == 0:
                         print("[{}/{}][{}/{}] => Loss = {} (time spent: {})".format(epoch, n_epochs, i, len(training_generator), loss_value, (end-start)))
+                        print("l1: {}, l2: {}, l3: {}".format(l1_value,l2_value,l3_value))
                     losses.append(loss_value)
                 
                     if CHECK_GPU_USAGE:
