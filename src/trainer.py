@@ -56,8 +56,8 @@ class DeblurTrainer(object):
         if tensor_dtype == "half":
             self.network = self.network.half()
 
-        self.l2_weight = 0.1
-        self.l3_weight = 0
+        self.l2_weight = 0.5
+        self.l3_weight = 0.0
 
     def load_model(self, model_filename):
         """Loads an existing model
