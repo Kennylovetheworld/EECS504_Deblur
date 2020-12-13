@@ -1,3 +1,4 @@
+
 from src.Dataset_preprocess import *
 from src.loss import loss1, loss2, loss3
 from src.model import Net
@@ -20,7 +21,6 @@ import numpy as np
 class DeblurTrainer(object):
   """
   Class to train a CNN
-
   Attributes
   ----------
   network: :py:class:`torch.nn.Module`
@@ -36,7 +36,6 @@ class DeblurTrainer(object):
  
   def __init__(self, batch_size=8, use_gpu=False, verbosity_level=2):
     """ Init function
-
     Parameters
     ----------
     batch_size: int
@@ -45,7 +44,6 @@ class DeblurTrainer(object):
       If you would like to use the gpu
     verbosity_level: int
       The level of verbosity output to stdout
-
     """
 
     self.network = Net().to(device)
@@ -60,12 +58,10 @@ class DeblurTrainer(object):
 
   def load_model(self, model_filename):
     """Loads an existing model
-
     Parameters
     ----------
     model_file: str
       The filename of the model to load
-
     Returns
     -------
     start_epoch: int
@@ -87,7 +83,6 @@ class DeblurTrainer(object):
 
   def save_model(self, output_dir, epoch=0, iteration=0, losses=None):
     """Save the trained network
-
     Parameters
     ----------
     output_dir: str
@@ -114,7 +109,6 @@ class DeblurTrainer(object):
 
   def train(self, n_epochs=20, learning_rate=1e-3, output_dir='model_checkpoints', model=None):
     """Performs the training.
-
     Parameters
     ----------
     n_epochs: int

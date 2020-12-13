@@ -16,6 +16,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
+# import pdb
+
 
 #data augmentation
 def transform(img_input, img_target, opticalflow_1, opticalflow_2, patchsize):
@@ -24,7 +26,7 @@ def transform(img_input, img_target, opticalflow_1, opticalflow_2, patchsize):
     opticalflow_2 = opticalflow_2.permute(2,0,1)
     
     # Random rotation
-    angle = transforms.RandomRotation.get_params([-10, -10])
+    angle = transforms.RandomRotation.get_params([-10, 10])
     img_input = TF.rotate(img_input, angle)   #pytorch:1.7.0, torchvision:0.8.1
     img_target = TF.rotate(img_target, angle)
     opticalflow_1 = TF.rotate(opticalflow_1, angle)
@@ -35,8 +37,8 @@ def transform(img_input, img_target, opticalflow_1, opticalflow_2, patchsize):
     img_target = transforms.CenterCrop((520,1080))(img_target)
     opticalflow_1 = transforms.CenterCrop((520,1080))(opticalflow_1)
     opticalflow_2 = transforms.CenterCrop((520,1080))(opticalflow_2)
-
-    # Random crop
+    
+    # Random crop to (256,256)
     i, j, h, w = transforms.RandomCrop.get_params(
         img_input, output_size=(patchsize, patchsize))
     img_input = TF.crop(img_input, i, j, h, w)
@@ -74,7 +76,7 @@ def preprocess_dataset(data_dir):
     
     folder_number = 0
     for folder_name in sub_folders:
-        if (folder_name == 'blur_img_all.pt' or folder_name == 'sharp_img_all.pt' or folder_name == 'opticalflow_all.pt' or folder_name == 'log.xlsx' or folder_name == 'log.csv'):
+        if (folder_name == 'blur_img_all.pt' or folder_name == 'sharp_img_all.pt' or folder_name == 'opticalflow_all.pt' or folder_name == 'log.xlsx' or folder_name == 'log.csv' or folder_name == '.ipynb_checkpoints'):
             continue
         folder_number += 1
         sharp_sub_folder = os.path.join(data_dir, folder_name, 'sharp')
@@ -87,9 +89,9 @@ def preprocess_dataset(data_dir):
 
     n_samples = len(sharp_file_paths)
     
-    blur_img_all = torch.zeros((n_samples*5, 3, 256, 256), dtype=torch.float32)
-    sharp_img_all = torch.zeros((n_samples*5, 3, 256, 256), dtype=torch.float32)
-    opticalflow_all = torch.zeros((n_samples*5, 2, 2, 128, 128), dtype=torch.float32)
+    blur_img_all = torch.zeros((5*n_samples, 3, 256, 256), dtype=torch.float32)
+    sharp_img_all = torch.zeros((5*n_samples, 3, 256, 256), dtype=torch.float32)
+    opticalflow_all = torch.zeros((5*n_samples, 2, 2, 128, 128), dtype=torch.float32)
     
     for idx in range(n_samples):
         sharp_path = sharp_file_paths[idx]
@@ -126,8 +128,15 @@ def preprocess_dataset(data_dir):
         img_target = transforms.ToTensor()(img_target).to(device)
         opticalflow_1 = torch.Tensor(opticalflow_1).to(device)
         opticalflow_2 = torch.Tensor(opticalflow_2).to(device)
-
+        """
+        img_input, img_target, opticalflow_1, opticalflow_2 = transform(
+                img_input, img_target, opticalflow_1, opticalflow_2, 256)
         
+        blur_img_all[idx, :, :, :] = img_input
+        sharp_img_all[idx, :, :, :] = img_target
+        opticalflow_all[idx, 0, :, :, :] = opticalflow_1
+        opticalflow_all[idx, 1, :, :, :] = opticalflow_2
+        """
         img_input_1, img_target_1, opticalflow_1_1, opticalflow_2_1 = transform(
                 img_input, img_target, opticalflow_1, opticalflow_2, 256)
         img_input_2, img_target_2, opticalflow_1_2, opticalflow_2_2 = transform(
@@ -179,6 +188,7 @@ def preprocess_dataset(data_dir):
     
 class Gopro_prepocessed(data.Dataset):
     def __init__(self, data_dir):
+        # pdb.set_trace()
         self.blur_img_all = torch.load(os.path.join(data_dir, 'blur_img_all.pt'))
         self.sharp_img_all = torch.load(os.path.join(data_dir, 'sharp_img_all.pt'))
         self.opticalflow_all = torch.load(os.path.join(data_dir, 'opticalflow_all.pt'))
@@ -244,16 +254,14 @@ if __name__ == '__main__':
     preprocess_dataset(data_dir)
 
 
-    #dataset = Gopro_prepocessed(data_dir)
-    #print(len(dataset))
+    #dataset = Gopro_prepocessed(data_dir = data_dir)
     
     #test plot
     #input_img, target_img, opticalflow_1, opticalflow_2 = dataset[int(random.random() * len(dataset))]
-    #input_img, target_img, opticalflow_1, opticalflow_2 = dataset[2058]
-    #input_img tensor(3,256,256)      range[0-1], dtype = torch.float16
-    #target_img tensor(3,256,256)     range[0-1], dtype = torch.float16
-    #opticalflow_1 tensor(2,128,128)  range[0-255], dtype = torch.float16
-    #opticalflow_2 tensor(2,128,128)  range[0-255], dtype = torch.float16
+    #input_img tensor(3,256,256)      range[0-1], dtype = torch.float32
+    #target_img tensor(3,256,256)     range[0-1], dtype = torch.float32
+    #opticalflow_1 tensor(2,128,128)  range[0-255], dtype = torch.float32
+    #opticalflow_2 tensor(2,128,128)  range[0-255], dtype = torch.float32
     #plot(input_img, target_img, opticalflow_1, opticalflow_2)
     
     #dataloader
