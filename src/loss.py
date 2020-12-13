@@ -62,19 +62,23 @@ def loss3(optical_flow1, optical_flow2, deformable_conv, M=10):
     #           Assume 2*9 are dx11, dx12, dx13 ... dx23, dx33; dy11...
     # Output:
     #   loss(B,)
+
     
     # pdb.set_trace()
 
     device = deformable_conv.device
+    # mask
+    mask_dx = torch.tensor([0,1,2,0,1,2,0,1,2]).to(device)
+    mask_dy = torch.tensor([0,0,0,1,1,1,2,2,2]).to(device)
     # Sampling points, dxdy
-    dx1 = deformable_conv[:,0:9,31,31] #(B,9)
-    dy1 = deformable_conv[:,9:18,31,31]
-    dx2 = deformable_conv[:,0:9,31,95]
-    dy2 = deformable_conv[:,9:18,31,95]
-    dx3 = deformable_conv[:,0:9,95,31]
-    dy3 = deformable_conv[:,9:18,95,31]
-    dx4 = deformable_conv[:,0:9,95,95]
-    dy4 = deformable_conv[:,9:18,95,95]
+    dx1 = deformable_conv[:,0:9,31,31] + mask_dx #(B,9)
+    dy1 = deformable_conv[:,9:18,31,31] + mask_dy
+    dx2 = deformable_conv[:,0:9,31,95] + mask_dx
+    dy2 = deformable_conv[:,9:18,31,95] + mask_dy
+    dx3 = deformable_conv[:,0:9,95,31] + mask_dx
+    dy3 = deformable_conv[:,9:18,95,31] + mask_dy
+    dx4 = deformable_conv[:,0:9,95,95] + mask_dx
+    dy4 = deformable_conv[:,9:18,95,95] + mask_dy
     samp_x = torch.cat((dx1,dx2,dx3,dx4),1) #(B,4*9)
     samp_y = torch.cat((dy1,dy2,dy3,dy4),1)
 
